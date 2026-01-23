@@ -80,13 +80,14 @@ String getMACasString(uint8_t *mac)
   sprintf(macno, "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   return String(macno);
 }
-
+#ifdef RGB_RESPONSE_ENABLED
 void setColor(int redValue, int greenValue, int blueValue)
 {
   analogWrite(RGB_R, redValue);
   analogWrite(RGB_G, greenValue);
   analogWrite(RGB_B, blueValue);
 }
+#endif
 
 void setup()
 {
@@ -99,6 +100,8 @@ void setup()
   pinMode(4, OUTPUT);
   digitalWrite(4, HIGH);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
   pinMode(RGB_R, OUTPUT);
   pinMode(RGB_G, OUTPUT);
@@ -138,6 +141,7 @@ void setup()
   Serial.println(F("init RFID reader..."));
   nfc.begin();
   nfc.SAMConfig();
+  Serial.println(F("RFID reader initialized."));
 #ifdef DEBUG
   // Verzió lekérdezése
   uint32_t versiondata = nfc.getFirmwareVersion();
@@ -154,9 +158,9 @@ void setup()
   Serial.print(".");
   Serial.println((versiondata >> 8) & 0xFF, HEX);
 #endif
-  Serial.println(F("Várakozás telefonra..."));
+  Serial.println(F("Várakozás telefonra vagy kártyára..."));
 #ifdef BUZZER_ENABLED
-  Serial.println(F("RFID reader initialized."));
+  
   tone(BUZZER_PIN, 1000);
   delay(250);
   noTone(BUZZER_PIN);
@@ -235,7 +239,7 @@ void loop()
   {
     String cardId;
     String cardType = "RF1";
-
+    digitalWrite(LED_BUILTIN, HIGH);
     if (nfc.inDataExchange(selectAid, sizeof(selectAid), response, &responseLength))
     {
       // SIKER: Ez egy telefon, ami válaszolt az AID-re
@@ -294,12 +298,13 @@ void loop()
       webClient.println(F("Connection: close"));
       webClient.println();
       dataSent = true;
-      delay(3000);
     }
     else
     {
 #ifdef DEBUG
       Serial.println(F("connection failed"));
+#endif
+#ifdef RGB_RESPONSE_ENABLED &&BUZZER_ENABLED
       setColor(0, 0, 255);
       tone(BUZZER_PIN, 500);
       delay(2000);
@@ -307,5 +312,7 @@ void loop()
       setColor(255, 255, 255);
 #endif
     }
+    delay(3000);
+    digitalWrite(LED_BUILTIN, LOW);
   }
 }
