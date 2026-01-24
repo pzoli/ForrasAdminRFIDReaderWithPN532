@@ -111,11 +111,6 @@ void setup()
 #ifdef RGB_RESPONSE_ENABLED
   setColor(255, 0, 0);
   delay(1000);
-  setColor(0, 255, 0);
-  delay(1000);
-  setColor(0, 0, 255);
-  delay(1000);
-  setColor(255, 255, 255);
 #endif
 #ifdef DEBUG
   while (!Serial)
@@ -140,6 +135,10 @@ void setup()
   }
 #endif
 
+#ifdef RGB_RESPONSE_ENABLED
+  setColor(0, 255, 0);
+  delay(1000);
+#endif
   Serial.println(F("init RFID reader..."));
   nfc.begin();
   nfc.SAMConfig();
@@ -162,16 +161,20 @@ void setup()
 #endif
   Serial.println(F("Waiting for phone or card..."));
   webResult.reserve(128);
+#ifdef RGB_RESPONSE_ENABLED
+  setColor(0, 0, 255);
+  delay(1000);
+  setColor(255, 255, 255);  
+#endif
 #ifdef BUZZER_ENABLED
-  
   tone(BUZZER_PIN, 1000);
   delay(250);
   noTone(BUZZER_PIN);
 #endif
 }
 
-void processServerResponse(String result) {
-  if (result.equals(F("{\"RESPONSE\":\"OK\"}"))) {
+void processServerResponse() {
+  if (webResult.equals(F("{\"RESPONSE\":\"OK\"}"))) {
     Serial.println(F("Success response beep"));
     #ifdef RGB_RESPONSE_ENABLED
       setColor(0, 255, 0);
@@ -222,7 +225,7 @@ void loop()
       {
         inJSON = false;
         webResult += buff[i];
-        processServerResponse(webResult);
+        processServerResponse();
       }
       if (inJSON)
       {
