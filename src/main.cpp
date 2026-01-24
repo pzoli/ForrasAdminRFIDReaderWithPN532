@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 JsonDocument doc;
 
-#define BUZZER_PIN 6
+#define BUZZER_PIN 7
 
 #define RGB_R 2
 #define RGB_G 3
@@ -89,6 +89,8 @@ void setColor(int redValue, int greenValue, int blueValue)
 }
 #endif
 
+String webResult = "";
+
 void setup()
 {
   // Open serial communications and wait for port to open:
@@ -147,18 +149,19 @@ void setup()
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata)
   {
-    Serial.println(F("Nem található PN532 modul. Ellenőrizd a kapcsolatot!"));
+    Serial.println(F("PN532 module not found. Check connections."));
     while (1)
       ; // Állj meg itt
   }
-  Serial.print(F("PN532 Firmware Verzió: "));
+  Serial.print(F("PN532 Firmware version: "));
   Serial.print((versiondata >> 24) & 0xFF, HEX);
   Serial.print(".");
   Serial.print((versiondata >> 16) & 0xFF, HEX);
   Serial.print(".");
   Serial.println((versiondata >> 8) & 0xFF, HEX);
 #endif
-  Serial.println(F("Várakozás telefonra vagy kártyára..."));
+  Serial.println(F("Waiting for phone or card..."));
+  webResult.reserve(128);
 #ifdef BUZZER_ENABLED
   
   tone(BUZZER_PIN, 1000);
@@ -167,20 +170,49 @@ void setup()
 #endif
 }
 
+void processServerResponse(String result) {
+  if (result.equals(F("{\"RESPONSE\":\"OK\"}"))) {
+    Serial.println(F("Success response beep"));
+    #ifdef RGB_RESPONSE_ENABLED
+      setColor(0, 255, 0);
+      tone(BUZZER_PIN, 1000, 250);
+      delay(250);
+      setColor(255, 255, 255);
+    #endif
+  } else {
+    Serial.println(F("Failure or Unknown case response beep"));
+    #ifdef RGB_RESPONSE_ENABLED
+      setColor(255, 0, 0);
+      tone(BUZZER_PIN, 1000, 250);
+      delay(500);
+      tone(BUZZER_PIN, 1000, 250);
+      setColor(255, 255, 255);
+    #endif
+  }
+}
+
 EthernetClient webClient;
 bool dataSent = false;
 bool inJSON = false;
-String webResult = "";
 String command = "";
+int timer = 0;
 
 void loop()
 {
-  if (webClient.available())
+  if (conf.usedhcp == 1)
+  {
+    Ethernet.maintain();
+  }
+  int available = webClient.available();
+  while(available > 0)
   {
     char buff[64];
-    int cnt = webClient.readBytes(buff, sizeof(buff));
+    int cnt = webClient.readBytes(buff, available > sizeof(buff) ? sizeof(buff) : available);
     for (int i = 0; i < cnt; i++)
     {
+#ifdef DEBUG
+      Serial.print(buff[i]);
+#endif
       if (buff[i] == '{' && !inJSON)
       {
         inJSON = true;
@@ -190,30 +222,7 @@ void loop()
       {
         inJSON = false;
         webResult += buff[i];
-        if (webResult.equals(F("{\"RESPONSE\":\"OK\"}")))
-        {
-#ifdef RGB_RESPONSE_ENABLED &&BUZZER_ENABLED
-          setColor(0, 255, 0);
-          tone(BUZZER_PIN, 1000);
-          delay(250);
-          noTone(BUZZER_PIN);
-          setColor(255, 255, 255);
-#endif
-        }
-        else
-        {
-#ifdef RGB_RESPONSE_ENABLED &&BUZZER_ENABLED
-          setColor(255, 0, 0);
-          tone(BUZZER_PIN, 1000);
-          delay(250);
-          noTone(BUZZER_PIN);
-          delay(250);
-          tone(BUZZER_PIN, 1000);
-          delay(250);
-          noTone(BUZZER_PIN);
-          setColor(255, 255, 255);
-#endif
-        }
+        processServerResponse(webResult);
       }
       if (inJSON)
       {
@@ -223,6 +232,7 @@ void loop()
 #ifdef DEBUG
     Serial.write(buff, cnt);
 #endif
+    available = webClient.available();
   }
 
   if (!webClient.connected() && dataSent)
@@ -235,14 +245,15 @@ void loop()
   uint8_t responseLength = 32;
   success = nfc.inListPassiveTarget();
   // Look for new cards
-  if (success)
+  if (success && timer == 0)
   {
+    timer = 30; // about 3 seconds delay
     String cardId;
     String cardType = "RF1";
     digitalWrite(LED_BUILTIN, HIGH);
     if (nfc.inDataExchange(selectAid, sizeof(selectAid), response, &responseLength))
     {
-      // SIKER: Ez egy telefon, ami válaszolt az AID-re
+      // Success: this is a phone, response for AID
       if (responseLength > 2)
       {
         for (uint8_t i = 0; i < responseLength - 2; i++)
@@ -254,14 +265,14 @@ void loop()
     }
     else
     {
-      // Nem telefon, olvassuk az UID-t
+      // Not a phone, read UID
       uint8_t uid[7];
       uint8_t uidLength;
 
       if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength))
       {
 #ifdef DEBUG
-        Serial.print("Kártya UID: ");
+        Serial.print("Card UID: ");
 #endif
         for (uint8_t i = 0; i < uidLength; i++)
         {
@@ -279,7 +290,6 @@ void loop()
     if (webClient.connect(conf.serverip, conf.serverport)) // 8080
     {
       webClient.print(F("GET "));
-      // String request = "/forras-admin/rest/createNFCLog?readerid=%RID%&rfid=%CID%&type=%TYPE%";;
       String request = String(conf.request);
       request.replace(F("%RID%"), getMACasString(conf.mac));
       request.replace(F("%CID%"), cardId);
@@ -312,7 +322,11 @@ void loop()
       setColor(255, 255, 255);
 #endif
     }
-    delay(3000);
-    digitalWrite(LED_BUILTIN, LOW);
   }
+  if (timer > 0) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    timer -= 1;
+  } else {
+    digitalWrite(LED_BUILTIN, LOW);
+  }    
 }
