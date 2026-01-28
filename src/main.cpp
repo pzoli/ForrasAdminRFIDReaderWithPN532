@@ -142,6 +142,7 @@ void setup()
   Serial.println(F("init RFID reader..."));
   nfc.begin();
   nfc.SAMConfig();
+  nfc.setPassiveActivationRetries(0x11);
   Serial.println(F("RFID reader initialized."));
 #ifdef DEBUG
   // Verzió lekérdezése
@@ -200,6 +201,16 @@ bool inJSON = false;
 String command = "";
 int timer = 0;
 
+void resetNFCField() {
+  // PN532 belső regiszterének írása: RF mező lekapcsolása
+  // PN532_REG_CIU_TX_CONTROL = 0x6336
+  nfc.writeRegister(0x6336, 0x80); 
+  delay(100);
+  // RF mező visszakapcsolása (TX1 és TX2 antennák aktiválása)
+  nfc.writeRegister(0x6336, 0x83);
+  delay(50);
+}
+
 void loop()
 {
   if (conf.usedhcp == 1)
@@ -250,6 +261,9 @@ void loop()
   // Look for new cards
   if (success && timer == 0)
   {
+#ifdef DEBUG
+    Serial.println("Card detected!");
+#endif
     timer = 30; // about 3 seconds delay
     String cardId;
     String cardType = "RF1";
@@ -263,8 +277,8 @@ void loop()
         {
           cardId += String(response[i], HEX);
         }
+        cardType = "VRF1";
       }
-      cardType = "VRF1";
     }
     else
     {
@@ -285,6 +299,7 @@ void loop()
         }
       }
     }
+    resetNFCField();
 #ifdef DEBUG
     Serial.println();
     Serial.print(F("cardid:"));
