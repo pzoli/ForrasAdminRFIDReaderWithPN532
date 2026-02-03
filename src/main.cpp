@@ -12,7 +12,7 @@ JsonDocument doc;
 
 #define RGB_R 2
 #define RGB_G 3
-#define RGB_B 4
+#define RGB_B 5
 
 // #define DEBUG
 #define DHCP
@@ -67,11 +67,17 @@ void initEthernet()
   else
   {
 #endif
+    IPAddress ipAddr(conf.ip[0], conf.ip[1], conf.ip[2], conf.ip[3]);
+    IPAddress dnsAddr(conf.dnsserver[0], conf.dnsserver[1], conf.dnsserver[2], conf.dnsserver[3]);
+    IPAddress gwAddr(conf.gateway[0], conf.gateway[1], conf.gateway[2], conf.gateway[3]);
+    IPAddress snAddr(conf.subnet[0], conf.subnet[1], conf.subnet[2], conf.subnet[3]);
     Serial.println(F("Ethernet configure using fix IP"));
-    Ethernet.begin(conf.mac, conf.ip, conf.dnsserver, conf.gateway, conf.subnet);
+    Ethernet.begin(conf.mac, ipAddr, dnsAddr, gwAddr, snAddr);
+    Ethernet.maintain();
 #ifdef DHCP
   }
 #endif
+  delay(1000);
 }
 
 String getMACasString(uint8_t *mac)
