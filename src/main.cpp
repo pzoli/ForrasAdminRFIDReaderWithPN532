@@ -88,10 +88,10 @@ void initEthernet()
   if (success) {
     Serial.print(F("W5100 OK! IP: "));
     Serial.println(Ethernet.localIP());
-    // Ez a sor kényszeríti a W5100 PHY rétegét a működésre
+    // W5100 PHY layer reinit
     W5100.writeSnMR(0, SnMR::TCP); 
   } else {
-    Serial.println(F("W5100 NEM VALASZOL!"));
+    Serial.println(F("W5100 not answered!"));
   }
 }
 
@@ -117,13 +117,13 @@ void setup()
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
   
+  // Hardware reset of W5100
   pinMode(10, OUTPUT);
   digitalWrite(10, LOW);
   delay(50);
   digitalWrite(10, HIGH);
   delay(500);
 
-  digitalWrite(10, HIGH);
   pinMode(7, OUTPUT);
   digitalWrite(7, HIGH);
   pinMode(4, OUTPUT);
