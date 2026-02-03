@@ -57,6 +57,14 @@ void printIPToSerial(String ipname, IPAddress addr)
 #endif
 void initEthernet()
 {
+  W5100.writeMR(0x80); // Szoftveres Reset bit (RST) beállítása
+  delay(200);
+
+  Serial.println(F("Reset faza..."));
+  byte dummyMac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  Ethernet.begin(dummyMac, IPAddress(0,0,0,0)); 
+  delay(200);
+
   int attempts = 0;
   bool success = false;
 #ifdef DHCP
@@ -118,19 +126,22 @@ void setup()
   Serial.begin(115200);
   
   // Hardware reset of W5100
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0)); // Csak 1 MHz a biztonság kedvéért
+  
   pinMode(10, OUTPUT);
-  digitalWrite(10, LOW);
-  delay(50);
-  digitalWrite(10, HIGH);
-  delay(500);
+  digitalWrite(10, LOW);  // Chip kiválasztása
+  delay(100);
+  W5100.init();           // Chip belső inicializálása
+  delay(100);
+  digitalWrite(10, HIGH); // Chip elengedése
+  
+  SPI.endTransaction();
 
   pinMode(7, OUTPUT);
   digitalWrite(7, HIGH);
   pinMode(4, OUTPUT);
   digitalWrite(4, HIGH);
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
 
   pinMode(RGB_R, OUTPUT);
   pinMode(RGB_G, OUTPUT);
@@ -294,7 +305,7 @@ void loop()
     timer = 30; // about 3 seconds delay
     String cardId;
     String cardType = "RF1";
-    digitalWrite(LED_BUILTIN, HIGH);
+    
     if (nfc.inDataExchange(selectAid, sizeof(selectAid), response, &responseLength))
     {
       // Success: this is a phone, response for AID
@@ -369,9 +380,6 @@ void loop()
     }
   }
   if (timer > 0) {
-    digitalWrite(LED_BUILTIN, HIGH);
     timer -= 1;
-  } else {
-    digitalWrite(LED_BUILTIN, LOW);
   }    
 }
