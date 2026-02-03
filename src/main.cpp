@@ -4,7 +4,6 @@
 #include <Ethernet.h>
 #include <PN532_I2C.h>
 #include <PN532.h>
-#include <utility/w5100.h>
 #include <ArduinoJson.h>
 JsonDocument doc;
 
@@ -57,14 +56,6 @@ void printIPToSerial(String ipname, IPAddress addr)
 #endif
 void initEthernet()
 {
-  W5100.writeMR(0x80); // Szoftveres Reset bit (RST) beállítása
-  delay(200);
-
-  Serial.println(F("Reset faza..."));
-  byte dummyMac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  Ethernet.begin(dummyMac, IPAddress(0,0,0,0)); 
-  delay(200);
-
   int attempts = 0;
   bool success = false;
 #ifdef DHCP
@@ -96,8 +87,6 @@ void initEthernet()
   if (success) {
     Serial.print(F("W5100 OK! IP: "));
     Serial.println(Ethernet.localIP());
-    // W5100 PHY layer reinit
-    W5100.writeSnMR(0, SnMR::TCP); 
   } else {
     Serial.println(F("W5100 not answered!"));
   }
@@ -125,18 +114,8 @@ void setup()
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
   
-  // Hardware reset of W5100
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0)); // Csak 1 MHz a biztonság kedvéért
-  
   pinMode(10, OUTPUT);
-  digitalWrite(10, LOW);  // Chip kiválasztása
-  delay(100);
-  W5100.init();           // Chip belső inicializálása
-  delay(100);
-  digitalWrite(10, HIGH); // Chip elengedése
-  
-  SPI.endTransaction();
-
+  digitalWrite(10, HIGH);
   pinMode(7, OUTPUT);
   digitalWrite(7, HIGH);
   pinMode(4, OUTPUT);
