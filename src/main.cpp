@@ -4,7 +4,7 @@
 #include <Ethernet.h>
 #include <PN532_I2C.h>
 #include <PN532.h>
-
+#include <utility/w5100.h>
 #include <ArduinoJson.h>
 JsonDocument doc;
 
@@ -57,27 +57,42 @@ void printIPToSerial(String ipname, IPAddress addr)
 #endif
 void initEthernet()
 {
+  int attempts = 0;
+  bool success = false;
 #ifdef DHCP
-  if (conf.usedhcp == 1)
-  {
-    Serial.println(F("Ethernet configure useing DHCP"));
-    Ethernet.begin(conf.mac);
-    Ethernet.maintain();
-  }
-  else
-  {
+  while (attempts < 3 && !success) {
+    if (conf.usedhcp == 1)
+    {
+      Serial.println(F("Ethernet configure useing DHCP"));
+      if (Ethernet.begin(conf.mac) != 0) success = true;
+      Ethernet.maintain();
+    }
+    else
+    {
 #endif
-    IPAddress ipAddr(conf.ip[0], conf.ip[1], conf.ip[2], conf.ip[3]);
-    IPAddress dnsAddr(conf.dnsserver[0], conf.dnsserver[1], conf.dnsserver[2], conf.dnsserver[3]);
-    IPAddress gwAddr(conf.gateway[0], conf.gateway[1], conf.gateway[2], conf.gateway[3]);
-    IPAddress snAddr(conf.subnet[0], conf.subnet[1], conf.subnet[2], conf.subnet[3]);
-    Serial.println(F("Ethernet configure using fix IP"));
-    Ethernet.begin(conf.mac, ipAddr, dnsAddr, gwAddr, snAddr);
-    Ethernet.maintain();
+      IPAddress ipAddr(conf.ip[0], conf.ip[1], conf.ip[2], conf.ip[3]);
+      IPAddress dnsAddr(conf.dnsserver[0], conf.dnsserver[1], conf.dnsserver[2], conf.dnsserver[3]);
+      IPAddress gwAddr(conf.gateway[0], conf.gateway[1], conf.gateway[2], conf.gateway[3]);
+      IPAddress snAddr(conf.subnet[0], conf.subnet[1], conf.subnet[2], conf.subnet[3]);
+      Serial.println(F("Ethernet configure using fix IP"));
+      Ethernet.begin(conf.mac, ipAddr, dnsAddr, gwAddr, snAddr);
+      delay(1000);
+      if (Ethernet.localIP()[0] != 0) success = true;
 #ifdef DHCP
-  }
+    }
 #endif
-  delay(1000);
+    attempts++;
+    if (!success) delay(1000);
+  }
+  
+  if (success) {
+    Serial.print(F("W5100 OK! IP: "));
+    Serial.println(Ethernet.localIP());
+    // Ez a sor kényszeríti a W5100 PHY rétegét a működésre
+    W5100.writeSnMR(0, SnMR::TCP); 
+  } else {
+    Serial.println(F("W5100 NEM VALASZOL!"));
+  }
 }
 
 String getMACasString(uint8_t *mac)
@@ -101,7 +116,13 @@ void setup()
 {
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
+  
   pinMode(10, OUTPUT);
+  digitalWrite(10, LOW);
+  delay(50);
+  digitalWrite(10, HIGH);
+  delay(500);
+
   digitalWrite(10, HIGH);
   pinMode(7, OUTPUT);
   digitalWrite(7, HIGH);
