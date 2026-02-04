@@ -6,4 +6,6 @@ Use [ForrasAdminRFIDReaderConfigurator](https://github.com/pzoli/ForrasAdminRFID
 
 For cell phones HCE emulation use [MyNFCEmulatorApp](https://github.com/pzoli/MyNFCEmulatorApp) demo app.
 
+3D printable design is located on TinkerCAD project [LoginShield](https://www.tinkercad.com/things/3g0noVLoW8P-loginshield).
+
 ![Arduino Uno and RFID reader](/doc/20260122_162102.jpg)
