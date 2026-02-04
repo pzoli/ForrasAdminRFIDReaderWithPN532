@@ -178,7 +178,7 @@ void setup()
   Serial.println((versiondata >> 8) & 0xFF, HEX);
 #endif
   Serial.println(F("Waiting for phone or card..."));
-  webResult.reserve(128);
+  webResult.reserve(24);
 #ifdef RGB_RESPONSE_ENABLED
   setColor(0, 0, 255);
   delay(1000);
